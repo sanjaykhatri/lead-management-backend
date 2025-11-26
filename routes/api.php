@@ -9,6 +9,10 @@ use App\Http\Controllers\Api\StripeWebhookController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
+Route::get('/locations', function () {
+    $locations = \App\Models\Location::select('id', 'name', 'slug', 'address')->get();
+    return response()->json($locations);
+});
 Route::post('/leads', [LeadController::class, 'store']);
 
 // Admin authentication
