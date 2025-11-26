@@ -92,8 +92,8 @@ class ServiceProviderController extends Controller
                     'price' => config('services.stripe.price_id'),
                     'quantity' => 1,
                 ]],
-                'success_url' => env('FRONTEND_URL', 'http://localhost:3000') . '/admin/service-providers?success=true',
-                'cancel_url' => env('FRONTEND_URL', 'http://localhost:3000') . '/admin/service-providers?canceled=true',
+                'success_url' => config('services.frontend.url') . '/admin/service-providers?success=true',
+                'cancel_url' => config('services.frontend.url') . '/admin/service-providers?canceled=true',
                 'metadata' => ['service_provider_id' => $serviceProvider->id],
             ]);
 
@@ -120,7 +120,7 @@ class ServiceProviderController extends Controller
         try {
             $session = BillingPortalSession::create([
                 'customer' => $serviceProvider->stripeSubscription->stripe_customer_id,
-                'return_url' => env('FRONTEND_URL', 'http://localhost:3000') . '/admin/service-providers',
+                'return_url' => config('services.frontend.url') . '/admin/service-providers',
             ]);
 
             return response()->json(['portal_url' => $session->url]);
