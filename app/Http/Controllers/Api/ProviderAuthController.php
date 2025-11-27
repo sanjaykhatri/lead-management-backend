@@ -10,6 +10,37 @@ use Illuminate\Support\Facades\Validator;
 
 class ProviderAuthController extends Controller
 {
+    public function signup(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:service_providers,email',
+            'phone' => 'nullable|string|max:20',
+            'address' => 'nullable|string',
+            'password' => 'required|string|min:6',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $provider = ServiceProvider::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'phone' => $request->phone,
+            'address' => $request->address,
+            'password' => Hash::make($request->password),
+        ]);
+
+        $token = $provider->createToken('provider-token')->plainTextToken;
+
+        return response()->json([
+            'provider' => $provider->load('stripeSubscription'),
+            'token' => $token,
+            'message' => 'Account created successfully. Please subscribe to access leads.',
+        ], 201);
+    }
+
     public function login(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -21,17 +52,22 @@ class ProviderAuthController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $provider = ServiceProvider::where('email', $request->email)->first();
+        $provider = ServiceProvider::where('email', $request->email)->with('stripeSubscription')->first();
 
         if (!$provider || !Hash::check($request->password, $provider->password)) {
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
 
+        // Check subscription status
+        $hasActiveSubscription = $provider->hasActiveSubscription();
+        
         $token = $provider->createToken('provider-token')->plainTextToken;
 
         return response()->json([
             'provider' => $provider,
             'token' => $token,
+            'has_active_subscription' => $hasActiveSubscription,
+            'subscription_status' => $provider->stripeSubscription?->status ?? 'none',
         ]);
     }
 

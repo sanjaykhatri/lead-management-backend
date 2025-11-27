@@ -13,6 +13,14 @@ class LeadController extends Controller
     {
         $provider = $request->user();
         
+        // Check if provider has active subscription
+        if (!$provider->hasActiveSubscription()) {
+            return response()->json([
+                'message' => 'Please contact admin to activate your account or subscribe to a plan.',
+                'has_active_subscription' => false,
+            ], 403);
+        }
+        
         $query = Lead::with(['location', 'serviceProvider'])
             ->where('service_provider_id', $provider->id);
 
@@ -38,6 +46,14 @@ class LeadController extends Controller
     {
         $provider = $request->user();
         
+        // Check if provider has active subscription
+        if (!$provider->hasActiveSubscription()) {
+            return response()->json([
+                'message' => 'Please contact admin to activate your account or subscribe to a plan.',
+                'has_active_subscription' => false,
+            ], 403);
+        }
+        
         // Ensure the lead belongs to this provider
         if ($lead->service_provider_id !== $provider->id) {
             return response()->json(['message' => 'Unauthorized'], 403);
@@ -50,6 +66,14 @@ class LeadController extends Controller
     public function update(Request $request, Lead $lead)
     {
         $provider = $request->user();
+        
+        // Check if provider has active subscription
+        if (!$provider->hasActiveSubscription()) {
+            return response()->json([
+                'message' => 'Please contact admin to activate your account or subscribe to a plan.',
+                'has_active_subscription' => false,
+            ], 403);
+        }
         
         // Ensure the lead belongs to this provider
         if ($lead->service_provider_id !== $provider->id) {

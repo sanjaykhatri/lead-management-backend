@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Admin\ServiceProviderController;
 use App\Http\Controllers\Api\Admin\LocationController;
 use App\Http\Controllers\Api\ProviderAuthController;
 use App\Http\Controllers\Api\Provider\LeadController as ProviderLeadController;
+use App\Http\Controllers\Api\Provider\SubscriptionController as ProviderSubscriptionController;
 use App\Http\Controllers\Api\StripeWebhookController;
 use Illuminate\Support\Facades\Route;
 
@@ -20,7 +21,8 @@ Route::post('/leads', [LeadController::class, 'store']);
 // Admin authentication
 Route::post('/admin/login', [AuthController::class, 'login']);
 
-// Provider authentication
+// Provider authentication (public)
+Route::post('/provider/signup', [ProviderAuthController::class, 'signup']);
 Route::post('/provider/login', [ProviderAuthController::class, 'login']);
 
 // Admin protected routes
@@ -48,7 +50,12 @@ Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
 Route::middleware('auth:sanctum')->prefix('provider')->group(function () {
     Route::get('/user', [ProviderAuthController::class, 'user']);
     Route::post('/logout', [ProviderAuthController::class, 'logout']);
-
+    
+    // Subscription
+    Route::get('/subscription/status', [ProviderSubscriptionController::class, 'getStatus']);
+    Route::post('/subscription/checkout', [ProviderSubscriptionController::class, 'createCheckoutSession']);
+    Route::get('/subscription/billing-portal', [ProviderSubscriptionController::class, 'createBillingPortalSession']);
+    
     // Leads
     Route::get('/leads', [ProviderLeadController::class, 'index']);
     Route::get('/leads/{lead}', [ProviderLeadController::class, 'show']);
