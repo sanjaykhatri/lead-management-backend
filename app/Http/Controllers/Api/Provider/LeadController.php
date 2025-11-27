@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\Provider;
 
 use App\Http\Controllers\Controller;
 use App\Models\Lead;
+use App\Models\LeadNote;
+use App\Events\LeadStatusUpdated;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -112,7 +114,22 @@ class LeadController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
+        $oldStatus = $lead->status;
         $lead->update(['status' => $request->status]);
+
+        // Create note and broadcast if status changed
+        if ($oldStatus !== $lead->status) {
+            LeadNote::create([
+                'lead_id' => $lead->id,
+                'service_provider_id' => $provider->id,
+                'note' => "Status changed from {$oldStatus} to {$lead->status}",
+                'type' => 'status_change',
+                'metadata' => ['old_status' => $oldStatus, 'new_status' => $lead->status],
+            ]);
+            
+            // Broadcast status update event
+            event(new LeadStatusUpdated($lead, $oldStatus));
+        }
 
         return response()->json($lead->load(['location', 'serviceProvider']));
     }

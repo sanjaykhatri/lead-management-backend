@@ -46,4 +46,11 @@ return [
         'url' => env('FRONTEND_URL', 'http://localhost:3000'),
     ],
 
+    'twilio' => [
+        'enabled' => env('TWILIO_ENABLED', false),
+        'account_sid' => env('TWILIO_ACCOUNT_SID'),
+        'auth_token' => env('TWILIO_AUTH_TOKEN'),
+        'from' => env('TWILIO_FROM'),
+    ],
+
 ];

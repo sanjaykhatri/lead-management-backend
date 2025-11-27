@@ -33,4 +33,9 @@ class Lead extends Model
     {
         return $this->belongsTo(ServiceProvider::class);
     }
+
+    public function notes()
+    {
+        return $this->hasMany(LeadNote::class)->orderBy('created_at', 'desc');
+    }
 }

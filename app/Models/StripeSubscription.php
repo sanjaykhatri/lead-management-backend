@@ -13,14 +13,22 @@ class StripeSubscription extends Model
         'stripe_subscription_id',
         'status',
         'current_period_end',
+        'trial_ends_at',
+        'subscription_plan_id',
     ];
 
     protected $casts = [
         'current_period_end' => 'datetime',
+        'trial_ends_at' => 'datetime',
     ];
 
     public function serviceProvider(): BelongsTo
     {
         return $this->belongsTo(ServiceProvider::class);
+    }
+
+    public function plan(): BelongsTo
+    {
+        return $this->belongsTo(SubscriptionPlan::class, 'subscription_plan_id');
     }
 }

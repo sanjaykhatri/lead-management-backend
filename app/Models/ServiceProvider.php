@@ -7,13 +7,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
 class ServiceProvider extends Authenticatable
 {
-    use HasApiTokens;
+    use HasApiTokens, Notifiable;
 
-    protected $fillable = ['name', 'email', 'phone', 'address', 'password', 'is_active'];
+    protected $fillable = ['name', 'email', 'phone', 'address', 'password', 'is_active', 'zip_code', 'latitude', 'longitude'];
 
     protected $hidden = ['password'];
 
@@ -42,6 +43,25 @@ class ServiceProvider extends Authenticatable
 
     public function hasActiveSubscription(): bool
     {
-        return $this->stripeSubscription && $this->stripeSubscription->status === 'active';
+        if (!$this->stripeSubscription) {
+            return false;
+        }
+
+        // Check if in trial period
+        if ($this->stripeSubscription->trial_ends_at && $this->stripeSubscription->trial_ends_at->isFuture()) {
+            return true;
+        }
+
+        return $this->stripeSubscription->status === 'active';
+    }
+
+    public function performanceMetrics()
+    {
+        return $this->hasMany(ProviderPerformanceMetric::class);
+    }
+
+    public function notes()
+    {
+        return $this->hasMany(LeadNote::class);
     }
 }

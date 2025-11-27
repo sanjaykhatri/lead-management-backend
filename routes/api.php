@@ -5,6 +5,11 @@ use App\Http\Controllers\Api\LeadController;
 use App\Http\Controllers\Api\Admin\LeadController as AdminLeadController;
 use App\Http\Controllers\Api\Admin\ServiceProviderController;
 use App\Http\Controllers\Api\Admin\LocationController;
+use App\Http\Controllers\Api\Admin\AnalyticsController;
+use App\Http\Controllers\Api\Admin\LeadExportController;
+use App\Http\Controllers\Api\Admin\LeadNoteController;
+use App\Http\Controllers\Api\Admin\UserController;
+use App\Http\Controllers\Api\NotificationsController;
 use App\Http\Controllers\Api\ProviderAuthController;
 use App\Http\Controllers\Api\Provider\LeadController as ProviderLeadController;
 use App\Http\Controllers\Api\Provider\SubscriptionController as ProviderSubscriptionController;
@@ -35,6 +40,16 @@ Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
     Route::get('/leads/{lead}', [AdminLeadController::class, 'show']);
     Route::put('/leads/{lead}', [AdminLeadController::class, 'update']);
     Route::put('/leads/{lead}/reassign', [AdminLeadController::class, 'reassign']);
+    Route::get('/leads/export/csv', [LeadExportController::class, 'exportCsv']);
+    
+    // Lead Notes
+    Route::get('/leads/{lead}/notes', [LeadNoteController::class, 'index']);
+    Route::post('/leads/{lead}/notes', [LeadNoteController::class, 'store']);
+    Route::put('/notes/{note}', [LeadNoteController::class, 'update']);
+    Route::delete('/notes/{note}', [LeadNoteController::class, 'destroy']);
+    
+    // Analytics
+    Route::get('/analytics/dashboard', [AnalyticsController::class, 'dashboard']);
 
     // Service Providers
     Route::apiResource('service-providers', ServiceProviderController::class);
@@ -46,6 +61,16 @@ Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
     // Locations
     Route::apiResource('locations', LocationController::class);
     Route::post('/locations/{location}/assign-providers', [LocationController::class, 'assignProviders']);
+    Route::put('/locations/{location}/assignment-algorithm', [LocationController::class, 'updateAssignmentAlgorithm']);
+    
+    // Admin Users (only super_admin)
+    Route::apiResource('users', UserController::class);
+    
+    // Notifications
+    Route::get('/notifications', [NotificationsController::class, 'index']);
+    Route::get('/notifications/unread', [NotificationsController::class, 'unread']);
+    Route::post('/notifications/{id}/read', [NotificationsController::class, 'markAsRead']);
+    Route::post('/notifications/read-all', [NotificationsController::class, 'markAllAsRead']);
 });
 
 // Provider protected routes
@@ -66,6 +91,12 @@ Route::middleware('auth:sanctum')->prefix('provider')->group(function () {
     Route::get('/leads', [ProviderLeadController::class, 'index']);
     Route::get('/leads/{lead}', [ProviderLeadController::class, 'show']);
     Route::put('/leads/{lead}', [ProviderLeadController::class, 'update']);
+    
+    // Notifications
+    Route::get('/notifications', [NotificationsController::class, 'index']);
+    Route::get('/notifications/unread', [NotificationsController::class, 'unread']);
+    Route::post('/notifications/{id}/read', [NotificationsController::class, 'markAsRead']);
+    Route::post('/notifications/read-all', [NotificationsController::class, 'markAllAsRead']);
 });
 
 // Stripe webhook (no auth required)

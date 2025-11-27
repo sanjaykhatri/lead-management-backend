@@ -82,4 +82,19 @@ class LocationController extends Controller
 
         return response()->json($location->load('serviceProviders'));
     }
+
+    public function updateAssignmentAlgorithm(Request $request, Location $location)
+    {
+        $validator = Validator::make($request->all(), [
+            'assignment_algorithm' => 'required|in:round_robin,geographic,load_balance,manual',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $location->update(['assignment_algorithm' => $request->assignment_algorithm]);
+
+        return response()->json($location);
+    }
 }

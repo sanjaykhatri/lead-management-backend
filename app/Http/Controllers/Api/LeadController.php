@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Lead;
 use App\Models\Location;
 use App\Models\ServiceProvider;
+use App\Services\LeadAssignmentService;
+use App\Events\LeadAssigned;
+use App\Notifications\LeadAssignedNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -30,18 +33,14 @@ class LeadController extends Controller
 
         $location = Location::where('slug', $request->location_slug)->firstOrFail();
         
-        // Find eligible service providers (active subscription) for this location
-        $eligibleProviders = $location->serviceProviders()
-            ->whereHas('stripeSubscription', function ($query) {
-                $query->where('status', 'active');
-            })
-            ->get();
-
-        // Auto-assign to first eligible provider if available
-        $serviceProviderId = null;
-        if ($eligibleProviders->isNotEmpty()) {
-            $serviceProviderId = $eligibleProviders->first()->id;
-        }
+        // Use assignment service to assign lead
+        $assignmentService = new LeadAssignmentService();
+        $assignedProvider = $assignmentService->assignLead(
+            new Lead(['zip_code' => $request->zip_code, 'location_id' => $location->id]),
+            $location
+        );
+        
+        $serviceProviderId = $assignedProvider?->id;
 
         $lead = Lead::create([
             'location_id' => $location->id,
@@ -55,6 +54,15 @@ class LeadController extends Controller
             'notes' => $request->notes,
             'status' => 'new',
         ]);
+
+        // Send notifications if provider is assigned
+        if ($assignedProvider) {
+            // Send SMS and database notification
+            $assignedProvider->notify(new LeadAssignedNotification($lead));
+            
+            // Broadcast real-time event
+            event(new LeadAssigned($lead));
+        }
 
         return response()->json([
             'message' => 'Lead submitted successfully',

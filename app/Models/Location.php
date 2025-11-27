@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Location extends Model
 {
-    protected $fillable = ['name', 'slug', 'address'];
+    protected $fillable = ['name', 'slug', 'address', 'assignment_algorithm'];
 
     public function leads(): HasMany
     {
