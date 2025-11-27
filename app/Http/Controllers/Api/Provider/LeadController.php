@@ -13,6 +13,14 @@ class LeadController extends Controller
     {
         $provider = $request->user();
         
+        // Check if account is active
+        if (!$provider->is_active) {
+            return response()->json([
+                'message' => 'Your account has been deactivated. Please contact admin to activate your account.',
+                'account_inactive' => true,
+            ], 403);
+        }
+        
         // Check if provider has active subscription
         if (!$provider->hasActiveSubscription()) {
             return response()->json([
@@ -46,6 +54,14 @@ class LeadController extends Controller
     {
         $provider = $request->user();
         
+        // Check if account is active
+        if (!$provider->is_active) {
+            return response()->json([
+                'message' => 'Your account has been deactivated. Please contact admin to activate your account.',
+                'account_inactive' => true,
+            ], 403);
+        }
+        
         // Check if provider has active subscription
         if (!$provider->hasActiveSubscription()) {
             return response()->json([
@@ -66,6 +82,14 @@ class LeadController extends Controller
     public function update(Request $request, Lead $lead)
     {
         $provider = $request->user();
+        
+        // Check if account is active
+        if (!$provider->is_active) {
+            return response()->json([
+                'message' => 'Your account has been deactivated. Please contact admin to activate your account.',
+                'account_inactive' => true,
+            ], 403);
+        }
         
         // Check if provider has active subscription
         if (!$provider->hasActiveSubscription()) {

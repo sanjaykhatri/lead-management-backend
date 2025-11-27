@@ -40,6 +40,8 @@ Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
     Route::apiResource('service-providers', ServiceProviderController::class);
     Route::post('/service-providers/{serviceProvider}/stripe-checkout', [ServiceProviderController::class, 'createCheckoutSession']);
     Route::get('/service-providers/{serviceProvider}/billing-portal', [ServiceProviderController::class, 'createBillingPortalSession']);
+    Route::post('/service-providers/{serviceProvider}/activate', [ServiceProviderController::class, 'activate']);
+    Route::post('/service-providers/{serviceProvider}/deactivate', [ServiceProviderController::class, 'deactivate']);
 
     // Locations
     Route::apiResource('locations', LocationController::class);

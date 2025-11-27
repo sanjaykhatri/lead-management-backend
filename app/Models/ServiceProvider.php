@@ -13,7 +13,7 @@ class ServiceProvider extends Authenticatable
 {
     use HasApiTokens;
 
-    protected $fillable = ['name', 'email', 'phone', 'address', 'password'];
+    protected $fillable = ['name', 'email', 'phone', 'address', 'password', 'is_active'];
 
     protected $hidden = ['password'];
 
@@ -21,6 +21,7 @@ class ServiceProvider extends Authenticatable
     {
         return [
             'password' => 'hashed',
+            'is_active' => 'boolean',
         ];
     }
 

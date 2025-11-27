@@ -27,6 +27,7 @@ class ServiceProviderController extends Controller
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string',
             'password' => 'nullable|string|min:6',
+            'is_active' => 'nullable|boolean',
         ]);
 
         if ($validator->fails()) {
@@ -36,6 +37,11 @@ class ServiceProviderController extends Controller
         $data = $request->all();
         if (isset($data['password'])) {
             $data['password'] = Hash::make($data['password']);
+        }
+        
+        // Default to active if not specified
+        if (!isset($data['is_active'])) {
+            $data['is_active'] = true;
         }
 
         $provider = ServiceProvider::create($data);
@@ -57,6 +63,7 @@ class ServiceProviderController extends Controller
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string',
             'password' => 'nullable|string|min:6',
+            'is_active' => 'nullable|boolean',
         ]);
 
         if ($validator->fails()) {
@@ -142,5 +149,23 @@ class ServiceProviderController extends Controller
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
+    }
+
+    public function activate(ServiceProvider $serviceProvider)
+    {
+        $serviceProvider->update(['is_active' => true]);
+        return response()->json([
+            'message' => 'Provider account activated successfully',
+            'provider' => $serviceProvider->load('stripeSubscription'),
+        ]);
+    }
+
+    public function deactivate(ServiceProvider $serviceProvider)
+    {
+        $serviceProvider->update(['is_active' => false]);
+        return response()->json([
+            'message' => 'Provider account deactivated successfully',
+            'provider' => $serviceProvider->load('stripeSubscription'),
+        ]);
     }
 }

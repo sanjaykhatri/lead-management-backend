@@ -58,6 +58,14 @@ class ProviderAuthController extends Controller
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
 
+        // Check if account is active
+        if (!$provider->is_active) {
+            return response()->json([
+                'message' => 'Your account has been deactivated. Please contact admin to activate your account.',
+                'account_inactive' => true,
+            ], 403);
+        }
+
         // Check subscription status
         $hasActiveSubscription = $provider->hasActiveSubscription();
         
