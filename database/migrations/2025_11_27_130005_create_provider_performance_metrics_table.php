@@ -20,7 +20,7 @@ return new class extends Migration
             $table->integer('avg_response_time_minutes')->nullable();
             $table->timestamps();
             
-            $table->unique(['service_provider_id', 'metric_date']);
+            $table->unique(['service_provider_id', 'metric_date'], 'provider_metrics_provider_date_unique');
         });
     }
 
