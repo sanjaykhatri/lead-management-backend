@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ServiceProvider;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Hash;
 use Stripe\Stripe;
 use Stripe\Checkout\Session;
 use Stripe\BillingPortal\Session as BillingPortalSession;
@@ -25,13 +26,19 @@ class ServiceProviderController extends Controller
             'email' => 'required|email|unique:service_providers,email',
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string',
+            'password' => 'nullable|string|min:6',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $provider = ServiceProvider::create($request->all());
+        $data = $request->all();
+        if (isset($data['password'])) {
+            $data['password'] = Hash::make($data['password']);
+        }
+
+        $provider = ServiceProvider::create($data);
 
         return response()->json($provider, 201);
     }
@@ -49,13 +56,21 @@ class ServiceProviderController extends Controller
             'email' => 'sometimes|email|unique:service_providers,email,' . $serviceProvider->id,
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string',
+            'password' => 'nullable|string|min:6',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $serviceProvider->update($request->all());
+        $data = $request->all();
+        if (isset($data['password']) && !empty($data['password'])) {
+            $data['password'] = Hash::make($data['password']);
+        } else {
+            unset($data['password']);
+        }
+
+        $serviceProvider->update($data);
 
         return response()->json($serviceProvider->load('stripeSubscription'));
     }
