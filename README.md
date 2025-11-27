@@ -67,6 +67,14 @@ localhost/
 - In Admin dashboard, show subscription status for each provider
 - Business rule: Only active subscribers are eligible to receive leads
 
+### 4. Provider Portal
+- **Provider Signup**: New providers can create accounts with email and password
+- **Provider Login**: Secure authentication using Laravel Sanctum
+- **Subscription Management**: Providers can subscribe to plans directly from their portal
+- **Lead Access Control**: Only providers with active subscriptions can access assigned leads
+- **Status Updates**: Providers can update lead status (new, contacted, closed)
+- **Subscription Status**: Real-time subscription status checking with automatic access blocking for inactive accounts
+
 ## Setup Instructions
 
 ### Backend (Laravel)
@@ -136,7 +144,13 @@ php artisan migrate
    - Leads (references service providers and locations)
    - Stripe subscriptions (references service providers)
 
-9. Create an admin user:
+9. Run the migration to add password field to service_providers:
+```bash
+php artisan migrate
+```
+   This will add the `password` column to the `service_providers` table if not already present.
+
+10. Create an admin user:
 ```bash
 php artisan tinker
 ```
@@ -155,7 +169,17 @@ $user->save();
    
    **Important:** Change these credentials in production!
 
-10. Start the server:
+11. (Optional) Create a test provider with password:
+```php
+$provider = new App\Models\ServiceProvider();
+$provider->name = 'Test Provider';
+$provider->email = 'provider@example.com';
+$provider->password = Hash::make('password123');
+$provider->save();
+```
+   Or use the provider signup endpoint: `POST /api/provider/signup`
+
+12. Start the server:
 ```bash
 php artisan serve
 ```
@@ -190,6 +214,39 @@ The frontend will be available at `http://localhost:3000`
 
 ### Public Endpoints
 - `POST /api/leads` - Submit a lead
+- `GET /api/locations` - Get list of locations
+
+### Provider Endpoints
+
+#### Authentication (Public)
+- `POST /api/provider/signup` - Provider signup (creates new provider account)
+  - Body: `{ name, email, phone?, address?, password }`
+  - Returns: `{ provider, token, message }`
+- `POST /api/provider/login` - Provider login
+  - Body: `{ email, password }`
+  - Returns: `{ provider, token, has_active_subscription, subscription_status }`
+
+#### Provider Protected Routes (Requires Authentication)
+- `GET /api/provider/user` - Get current provider info
+- `POST /api/provider/logout` - Logout
+
+#### Subscription Management
+- `GET /api/provider/subscription/status` - Get subscription status
+  - Returns: `{ has_active_subscription, subscription }`
+- `POST /api/provider/subscription/checkout` - Create Stripe checkout session
+  - Returns: `{ checkout_url }` - Redirect provider to Stripe checkout
+- `GET /api/provider/subscription/billing-portal` - Get Stripe billing portal URL
+  - Returns: `{ portal_url }` - Redirect provider to manage subscription
+
+#### Leads (Requires Active Subscription)
+- `GET /api/provider/leads` - List assigned leads (with filters: status, date_from, date_to)
+  - **Access Control**: Returns 403 if subscription is not active
+  - Returns: `{ data: [...], message? }` or error with `has_active_subscription: false`
+- `GET /api/provider/leads/{id}` - Get lead details
+  - **Access Control**: Returns 403 if subscription is not active or lead not assigned to provider
+- `PUT /api/provider/leads/{id}` - Update lead status
+  - Body: `{ status: 'new' | 'contacted' | 'closed' }`
+  - **Access Control**: Returns 403 if subscription is not active or lead not assigned to provider
 
 ### Admin Endpoints (Requires Authentication)
 - `POST /api/admin/login` - Admin login
@@ -205,11 +262,15 @@ The frontend will be available at `http://localhost:3000`
 #### Service Providers
 - `GET /api/admin/service-providers` - List providers
 - `POST /api/admin/service-providers` - Create provider
+  - Body: `{ name, email, phone?, address?, password? }`
+  - Password is optional when creating (can be set later)
 - `GET /api/admin/service-providers/{id}` - Get provider
 - `PUT /api/admin/service-providers/{id}` - Update provider
+  - Body: `{ name?, email?, phone?, address?, password? }`
+  - Password: If provided, will be hashed and updated. If empty, current password is kept.
 - `DELETE /api/admin/service-providers/{id}` - Delete provider
-- `POST /api/admin/service-providers/{id}/stripe-checkout` - Create Stripe checkout session
-- `GET /api/admin/service-providers/{id}/billing-portal` - Get Stripe billing portal URL
+- `POST /api/admin/service-providers/{id}/stripe-checkout` - Create Stripe checkout session (admin-initiated)
+- `GET /api/admin/service-providers/{id}/billing-portal` - Get Stripe billing portal URL (admin-initiated)
 
 #### Locations
 - `GET /api/admin/locations` - List locations
@@ -234,6 +295,13 @@ The frontend will be available at `http://localhost:3000`
 - `/admin/service-providers` - Service providers management
 - `/admin/locations` - Locations management
 
+### Provider
+- `/provider/signup` - Provider registration
+- `/provider/login` - Provider login
+- `/provider/dashboard` - Provider dashboard (assigned leads)
+- `/provider/leads/[id]` - Lead detail (provider view)
+- `/provider/subscription` - Subscription management and checkout
+
 ## Stripe Setup
 
 1. Create a Stripe account and get your API keys
@@ -251,9 +319,17 @@ The frontend will be available at `http://localhost:3000`
 - `users` - Admin users
 - `locations` - Physical locations
 - `leads` - Customer leads
-- `service_providers` - Service providers
+- `service_providers` - Service providers (includes password field for authentication)
 - `location_service_provider` - Pivot table for location-provider relationships
 - `stripe_subscriptions` - Stripe subscription tracking
+- `personal_access_tokens` - Laravel Sanctum tokens for API authentication
+
+### Service Provider Model
+- Extends `Authenticatable` for authentication
+- Uses `HasApiTokens` trait for Laravel Sanctum
+- Password is hashed automatically using Laravel's Hash facade
+- Has relationship to `stripe_subscriptions` table
+- Method `hasActiveSubscription()` checks if subscription status is 'active'
 
 ## Business Rules
 
@@ -261,16 +337,27 @@ The frontend will be available at `http://localhost:3000`
 2. When a lead is submitted, it's automatically assigned to the first eligible provider for that location
 3. Admins can manually reassign leads to any provider
 4. Lead status can be: `new`, `contacted`, or `closed`
+5. **Provider Access Control**: Providers can only access leads if they have an active subscription
+   - Inactive providers receive 403 error with message: "Please contact admin to activate your account or subscribe to a plan"
+   - Providers can subscribe directly through their portal using Stripe Checkout
+   - Subscription status is checked on every lead API call
+6. **Provider Authentication**: Providers authenticate using email/password with Laravel Sanctum tokens
+7. **Provider Signup**: New providers can self-register, but must subscribe before accessing leads
 
 ## Development Notes
 
 - The backend uses Laravel Sanctum for API authentication (token-based)
+- Both admin and provider authentication use Laravel Sanctum tokens
 - The frontend stores the auth token in localStorage
 - API routes are exempt from CSRF protection (using custom `VerifyCsrfToken` middleware)
 - CORS is configured to allow requests from the frontend
 - Stripe webhooks are verified using the webhook secret
 - MySQL database is used (configured in `.env`)
 - Migration order is critical - service providers must be created before leads
+- **Provider Authentication**: ServiceProvider model extends Authenticatable and uses HasApiTokens
+- **Subscription Access Control**: All provider lead endpoints check subscription status before allowing access
+- **Password Management**: Provider passwords are hashed using Laravel's Hash facade (bcrypt)
+- **Subscription Status**: Checked via `hasActiveSubscription()` method which verifies status === 'active'
 
 ## Troubleshooting
 
@@ -295,6 +382,20 @@ If you encounter "CSRF token mismatch" errors:
 - Use Stripe CLI for local testing: `stripe listen --forward-to localhost:8000/api/stripe/webhook`
 - Check Laravel logs for webhook errors: `storage/logs/laravel.log`
 - Verify webhook events are being received: `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`
+- **Important**: Webhook must update subscription status to 'active' for providers to access leads
+
+### Provider Authentication Issues
+- Make sure providers have passwords set (either via admin panel or signup)
+- Check that password field exists in `service_providers` table: `php artisan migrate`
+- Verify token is being sent: `Authorization: Bearer {token}` header
+- Provider login returns `has_active_subscription` flag - check this before allowing access
+
+### Provider Subscription Access Issues
+- Providers with inactive subscriptions will receive 403 errors when accessing leads
+- Error message: "Please contact admin to activate your account or subscribe to a plan"
+- Check subscription status: `GET /api/provider/subscription/status`
+- Verify Stripe webhook is updating subscription status correctly
+- Only subscriptions with `status = 'active'` allow lead access
 
 ### Database Issues
 - Make sure migrations have been run: `php artisan migrate`
@@ -351,6 +452,25 @@ FRONTEND_URL=http://localhost:3000
 NEXT_PUBLIC_API_URL=http://localhost:8000/api
 ```
 
+## Provider Subscription Flow
+
+1. **Provider Signup**: Provider creates account via `POST /api/provider/signup`
+2. **Login**: Provider logs in via `POST /api/provider/login`
+   - Response includes `has_active_subscription` flag
+   - If false, redirect to subscription page
+3. **Subscribe**: Provider creates checkout session via `POST /api/provider/subscription/checkout`
+   - Redirects to Stripe Checkout
+   - After payment, Stripe webhook updates subscription status to 'active'
+4. **Access Leads**: Once subscription is active, provider can access assigned leads
+5. **Manage Subscription**: Provider can access billing portal via `GET /api/provider/subscription/billing-portal`
+
+### Subscription Status Values
+- `active` - Provider can access leads
+- `incomplete` - Payment not completed, cannot access leads
+- `canceled` - Subscription canceled, cannot access leads
+- `past_due` - Payment failed, cannot access leads
+- `trialing` - Trial period, can access leads (if implemented)
+
 ## Next Steps (Future Enhancements)
 
 - Email notifications for new leads
@@ -362,4 +482,6 @@ NEXT_PUBLIC_API_URL=http://localhost:8000/api
 - SMS notifications
 - Real-time lead notifications
 - Provider performance metrics
+- Provider trial periods
+- Multiple subscription tiers/plans
 
