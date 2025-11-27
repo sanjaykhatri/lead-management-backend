@@ -100,13 +100,19 @@ Route::middleware('auth:sanctum')->prefix('provider')->group(function () {
     Route::get('/leads', [ProviderLeadController::class, 'index']);
     Route::get('/leads/{lead}', [ProviderLeadController::class, 'show']);
     Route::put('/leads/{lead}', [ProviderLeadController::class, 'update']);
-
+    
     // Notifications
     Route::get('/notifications', [NotificationsController::class, 'index']);
     Route::get('/notifications/unread', [NotificationsController::class, 'unread']);
     Route::post('/notifications/{id}/read', [NotificationsController::class, 'markAsRead']);
     Route::post('/notifications/read-all', [NotificationsController::class, 'markAllAsRead']);
+    
+    // Settings (for Pusher config)
+    Route::get('/settings/pusher', [\App\Http\Controllers\Api\Provider\SettingsController::class, 'getPusherSettings']);
 });
+
+// Broadcasting auth (requires auth)
+Route::middleware('auth:sanctum')->post('/broadcasting/auth', [\App\Http\Controllers\Api\BroadcastingAuthController::class, 'authenticate']);
 
 // Stripe webhook (no auth required)
 Route::post('/stripe/webhook', [StripeWebhookController::class, 'handleWebhook']);
