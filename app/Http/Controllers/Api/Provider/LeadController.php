@@ -1,0 +1,71 @@
+<?php
+
+namespace App\Http\Controllers\Api\Provider;
+
+use App\Http\Controllers\Controller;
+use App\Models\Lead;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+
+class LeadController extends Controller
+{
+    public function index(Request $request)
+    {
+        $provider = $request->user();
+        
+        $query = Lead::with(['location', 'serviceProvider'])
+            ->where('service_provider_id', $provider->id);
+
+        // Filter by status
+        if ($request->has('status')) {
+            $query->where('status', $request->status);
+        }
+
+        // Filter by date
+        if ($request->has('date_from')) {
+            $query->whereDate('created_at', '>=', $request->date_from);
+        }
+        if ($request->has('date_to')) {
+            $query->whereDate('created_at', '<=', $request->date_to);
+        }
+
+        $leads = $query->orderBy('created_at', 'desc')->paginate(20);
+
+        return response()->json($leads);
+    }
+
+    public function show(Request $request, Lead $lead)
+    {
+        $provider = $request->user();
+        
+        // Ensure the lead belongs to this provider
+        if ($lead->service_provider_id !== $provider->id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $lead->load(['location', 'serviceProvider']);
+        return response()->json($lead);
+    }
+
+    public function update(Request $request, Lead $lead)
+    {
+        $provider = $request->user();
+        
+        // Ensure the lead belongs to this provider
+        if ($lead->service_provider_id !== $provider->id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'status' => 'required|in:new,contacted,closed',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $lead->update(['status' => $request->status]);
+
+        return response()->json($lead->load(['location', 'serviceProvider']));
+    }
+}

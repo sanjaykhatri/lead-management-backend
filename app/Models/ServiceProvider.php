@@ -6,10 +6,23 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Laravel\Sanctum\HasApiTokens;
 
-class ServiceProvider extends Model
+class ServiceProvider extends Authenticatable
 {
-    protected $fillable = ['name', 'email', 'phone', 'address'];
+    use HasApiTokens;
+
+    protected $fillable = ['name', 'email', 'phone', 'address', 'password'];
+
+    protected $hidden = ['password'];
+
+    protected function casts(): array
+    {
+        return [
+            'password' => 'hashed',
+        ];
+    }
 
     public function locations(): BelongsToMany
     {
