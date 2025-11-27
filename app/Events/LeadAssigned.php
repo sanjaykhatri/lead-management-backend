@@ -30,7 +30,13 @@ class LeadAssigned implements ShouldBroadcast
 
     public function broadcastOn()
     {
-        return new PrivateChannel('provider.' . $this->lead->service_provider_id);
+        $channels = [new Channel('admin')]; // Admin receives all lead assignments
+        
+        if ($this->lead->service_provider_id) {
+            $channels[] = new PrivateChannel('provider.' . $this->lead->service_provider_id);
+        }
+        
+        return $channels;
     }
 
     public function broadcastAs()
@@ -41,6 +47,7 @@ class LeadAssigned implements ShouldBroadcast
     public function broadcastWith()
     {
         return [
+            'type' => 'lead_assigned',
             'lead' => [
                 'id' => $this->lead->id,
                 'name' => $this->lead->name,
@@ -48,8 +55,13 @@ class LeadAssigned implements ShouldBroadcast
                 'email' => $this->lead->email,
                 'status' => $this->lead->status,
                 'location' => $this->lead->location->name,
+                'service_provider_id' => $this->lead->service_provider_id,
+                'service_provider_name' => $this->lead->serviceProvider->name ?? null,
                 'created_at' => $this->lead->created_at->toIso8601String(),
             ],
+            'message' => $this->lead->serviceProvider 
+                ? "New lead '{$this->lead->name}' assigned to {$this->lead->serviceProvider->name}"
+                : "New lead '{$this->lead->name}' created",
         ];
     }
 }

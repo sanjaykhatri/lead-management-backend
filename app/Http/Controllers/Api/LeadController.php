@@ -55,13 +55,13 @@ class LeadController extends Controller
             'status' => 'new',
         ]);
 
+        // Always broadcast to admin (for all new leads)
+        event(new LeadAssigned($lead));
+        
         // Send notifications if provider is assigned
         if ($assignedProvider) {
             // Send SMS and database notification
             $assignedProvider->notify(new LeadAssignedNotification($lead));
-            
-            // Broadcast real-time event
-            event(new LeadAssigned($lead));
         }
 
         return response()->json([

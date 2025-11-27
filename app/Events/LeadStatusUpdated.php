@@ -49,12 +49,16 @@ class LeadStatusUpdated implements ShouldBroadcast
     public function broadcastWith()
     {
         return [
+            'type' => 'lead_status_updated',
             'lead' => [
                 'id' => $this->lead->id,
                 'name' => $this->lead->name,
                 'status' => $this->lead->status,
                 'old_status' => $this->oldStatus,
+                'service_provider_id' => $this->lead->service_provider_id,
+                'service_provider_name' => $this->lead->serviceProvider->name ?? null,
             ],
+            'message' => "Lead '{$this->lead->name}' status changed from {$this->oldStatus} to {$this->lead->status}",
         ];
     }
 }

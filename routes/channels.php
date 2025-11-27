@@ -2,10 +2,9 @@
 
 use Illuminate\Support\Facades\Broadcast;
 
-// Admin channel - all admins can listen
-Broadcast::channel('admin', function ($user) {
-    return $user->role === 'super_admin' || $user->role === 'admin' || $user->role === 'manager';
-});
+// Admin channel - all admins can listen (public channel, no auth needed)
+// Note: This is a public channel, so we don't need authorization
+// But we'll keep it here for consistency
 
 // Provider private channel - only the specific provider can listen
 Broadcast::channel('provider.{providerId}', function ($user, $providerId) {
