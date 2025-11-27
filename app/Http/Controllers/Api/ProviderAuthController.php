@@ -90,4 +90,54 @@ class ProviderAuthController extends Controller
 
         return response()->json(['message' => 'Logged out successfully']);
     }
+
+    public function updateProfile(Request $request)
+    {
+        $provider = $request->user();
+
+        $validator = Validator::make($request->all(), [
+            'name' => 'sometimes|string|max:255',
+            'email' => 'sometimes|email|unique:service_providers,email,' . $provider->id,
+            'phone' => 'nullable|string|max:20',
+            'address' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $provider->update($request->only(['name', 'email', 'phone', 'address']));
+
+        return response()->json([
+            'message' => 'Profile updated successfully',
+            'provider' => $provider->load('stripeSubscription'),
+        ]);
+    }
+
+    public function updatePassword(Request $request)
+    {
+        $provider = $request->user();
+
+        $validator = Validator::make($request->all(), [
+            'current_password' => 'required|string',
+            'new_password' => 'required|string|min:6',
+            'new_password_confirmation' => 'required|string|same:new_password',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        // Verify current password
+        if (!Hash::check($request->current_password, $provider->password)) {
+            return response()->json(['message' => 'Current password is incorrect'], 422);
+        }
+
+        // Update password
+        $provider->update([
+            'password' => Hash::make($request->new_password),
+        ]);
+
+        return response()->json(['message' => 'Password updated successfully']);
+    }
 }

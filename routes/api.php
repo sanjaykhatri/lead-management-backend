@@ -53,6 +53,10 @@ Route::middleware('auth:sanctum')->prefix('provider')->group(function () {
     Route::get('/user', [ProviderAuthController::class, 'user']);
     Route::post('/logout', [ProviderAuthController::class, 'logout']);
     
+    // Profile
+    Route::put('/profile', [ProviderAuthController::class, 'updateProfile']);
+    Route::put('/password', [ProviderAuthController::class, 'updatePassword']);
+    
     // Subscription
     Route::get('/subscription/status', [ProviderSubscriptionController::class, 'getStatus']);
     Route::post('/subscription/checkout', [ProviderSubscriptionController::class, 'createCheckoutSession']);
