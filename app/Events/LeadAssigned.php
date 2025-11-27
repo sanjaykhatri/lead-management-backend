@@ -3,6 +3,7 @@
 namespace App\Events;
 
 use App\Models\Lead;
+use App\Services\BroadcastingConfigService;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PresenceChannel;
@@ -20,6 +21,11 @@ class LeadAssigned implements ShouldBroadcast
     public function __construct(Lead $lead)
     {
         $this->lead = $lead->load(['location', 'serviceProvider']);
+    }
+
+    public function shouldBroadcast()
+    {
+        return BroadcastingConfigService::isPusherEnabled();
     }
 
     public function broadcastOn()

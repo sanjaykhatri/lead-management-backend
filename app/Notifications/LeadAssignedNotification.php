@@ -3,10 +3,11 @@
 namespace App\Notifications;
 
 use App\Models\Lead;
+use App\Services\TwilioConfigService;
+use App\Channels\DatabaseTwilioChannel;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use NotificationChannels\Twilio\TwilioChannel;
 use NotificationChannels\Twilio\TwilioSmsMessage;
 
 class LeadAssignedNotification extends Notification implements ShouldQueue
@@ -24,9 +25,9 @@ class LeadAssignedNotification extends Notification implements ShouldQueue
     {
         $channels = ['database'];
         
-        // Add SMS if phone number is available
-        if ($notifiable->phone && config('services.twilio.enabled', false)) {
-            $channels[] = TwilioChannel::class;
+        // Add SMS if phone number is available and Twilio is enabled
+        if ($notifiable->phone && TwilioConfigService::isEnabled()) {
+            $channels[] = DatabaseTwilioChannel::class;
         }
 
         return $channels;
@@ -34,8 +35,9 @@ class LeadAssignedNotification extends Notification implements ShouldQueue
 
     public function toTwilio($notifiable)
     {
-        return (new TwilioSmsMessage())
-            ->content("New lead assigned: {$this->lead->name} - {$this->lead->phone}. Location: {$this->lead->location->name}");
+        return (object) [
+            'content' => "New lead assigned: {$this->lead->name} - {$this->lead->phone}. Location: {$this->lead->location->name}",
+        ];
     }
 
     public function toArray($notifiable)

@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Admin\AnalyticsController;
 use App\Http\Controllers\Api\Admin\LeadExportController;
 use App\Http\Controllers\Api\Admin\LeadNoteController;
 use App\Http\Controllers\Api\Admin\UserController;
+use App\Http\Controllers\Api\Admin\SettingsController;
 use App\Http\Controllers\Api\NotificationsController;
 use App\Http\Controllers\Api\ProviderAuthController;
 use App\Http\Controllers\Api\Provider\LeadController as ProviderLeadController;
@@ -41,13 +42,13 @@ Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
     Route::put('/leads/{lead}', [AdminLeadController::class, 'update']);
     Route::put('/leads/{lead}/reassign', [AdminLeadController::class, 'reassign']);
     Route::get('/leads/export/csv', [LeadExportController::class, 'exportCsv']);
-    
+
     // Lead Notes
     Route::get('/leads/{lead}/notes', [LeadNoteController::class, 'index']);
     Route::post('/leads/{lead}/notes', [LeadNoteController::class, 'store']);
     Route::put('/notes/{note}', [LeadNoteController::class, 'update']);
     Route::delete('/notes/{note}', [LeadNoteController::class, 'destroy']);
-    
+
     // Analytics
     Route::get('/analytics/dashboard', [AnalyticsController::class, 'dashboard']);
 
@@ -62,10 +63,18 @@ Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
     Route::apiResource('locations', LocationController::class);
     Route::post('/locations/{location}/assign-providers', [LocationController::class, 'assignProviders']);
     Route::put('/locations/{location}/assignment-algorithm', [LocationController::class, 'updateAssignmentAlgorithm']);
-    
+
     // Admin Users (only super_admin)
     Route::apiResource('users', UserController::class);
-    
+
+    // Settings (only super_admin)
+    Route::get('/settings', [SettingsController::class, 'index']);
+    Route::get('/settings/group/{group}', [SettingsController::class, 'getByGroup']);
+    Route::put('/settings', [SettingsController::class, 'update']);
+    Route::put('/settings/group/{group}', [SettingsController::class, 'updateGroup']);
+    Route::post('/settings/pusher/test', [SettingsController::class, 'testPusher']);
+    Route::post('/settings/twilio/test', [SettingsController::class, 'testTwilio']);
+
     // Notifications
     Route::get('/notifications', [NotificationsController::class, 'index']);
     Route::get('/notifications/unread', [NotificationsController::class, 'unread']);
@@ -77,21 +86,21 @@ Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
 Route::middleware('auth:sanctum')->prefix('provider')->group(function () {
     Route::get('/user', [ProviderAuthController::class, 'user']);
     Route::post('/logout', [ProviderAuthController::class, 'logout']);
-    
+
     // Profile
     Route::put('/profile', [ProviderAuthController::class, 'updateProfile']);
     Route::put('/password', [ProviderAuthController::class, 'updatePassword']);
-    
+
     // Subscription
     Route::get('/subscription/status', [ProviderSubscriptionController::class, 'getStatus']);
     Route::post('/subscription/checkout', [ProviderSubscriptionController::class, 'createCheckoutSession']);
     Route::get('/subscription/billing-portal', [ProviderSubscriptionController::class, 'createBillingPortalSession']);
-    
+
     // Leads
     Route::get('/leads', [ProviderLeadController::class, 'index']);
     Route::get('/leads/{lead}', [ProviderLeadController::class, 'show']);
     Route::put('/leads/{lead}', [ProviderLeadController::class, 'update']);
-    
+
     // Notifications
     Route::get('/notifications', [NotificationsController::class, 'index']);
     Route::get('/notifications/unread', [NotificationsController::class, 'unread']);
