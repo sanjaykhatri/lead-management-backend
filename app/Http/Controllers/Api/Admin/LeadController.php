@@ -74,7 +74,20 @@ class LeadController extends Controller
             ]);
             
             // Broadcast status update event
-            event(new LeadStatusUpdated($lead, $oldStatus));
+            try {
+                \Log::info('Firing LeadStatusUpdated event', [
+                    'lead_id' => $lead->id,
+                    'old_status' => $oldStatus,
+                    'new_status' => $lead->status,
+                    'provider_id' => $lead->service_provider_id,
+                ]);
+                event(new LeadStatusUpdated($lead, $oldStatus));
+            } catch (\Exception $e) {
+                \Log::error('Failed to broadcast LeadStatusUpdated event', [
+                    'error' => $e->getMessage(),
+                    'lead_id' => $lead->id,
+                ]);
+            }
         }
 
         // Handle provider assignment/reassignment
@@ -82,7 +95,19 @@ class LeadController extends Controller
             if ($lead->service_provider_id) {
                 $provider = $lead->serviceProvider;
                 $provider->notify(new LeadAssignedNotification($lead));
-                event(new LeadAssigned($lead));
+                
+                try {
+                    \Log::info('Firing LeadAssigned event (update assignment)', [
+                        'lead_id' => $lead->id,
+                        'provider_id' => $lead->service_provider_id,
+                    ]);
+                    event(new LeadAssigned($lead));
+                } catch (\Exception $e) {
+                    \Log::error('Failed to broadcast LeadAssigned event (update assignment)', [
+                        'error' => $e->getMessage(),
+                        'lead_id' => $lead->id,
+                    ]);
+                }
                 
                 LeadNote::create([
                     'lead_id' => $lead->id,
@@ -116,7 +141,19 @@ class LeadController extends Controller
         if ($lead->service_provider_id && $lead->serviceProvider) {
             $provider = $lead->serviceProvider;
             $provider->notify(new LeadAssignedNotification($lead));
-            event(new LeadAssigned($lead));
+            
+            try {
+                \Log::info('Firing LeadAssigned event (reassign)', [
+                    'lead_id' => $lead->id,
+                    'provider_id' => $lead->service_provider_id,
+                ]);
+                event(new LeadAssigned($lead));
+            } catch (\Exception $e) {
+                \Log::error('Failed to broadcast LeadAssigned event (reassign)', [
+                    'error' => $e->getMessage(),
+                    'lead_id' => $lead->id,
+                ]);
+            }
             
             // Create note
             $noteText = $oldProviderId && $oldProvider

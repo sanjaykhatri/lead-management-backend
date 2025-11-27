@@ -25,7 +25,20 @@ class LeadAssigned implements ShouldBroadcast
 
     public function shouldBroadcast()
     {
-        return BroadcastingConfigService::isPusherEnabled();
+        $enabled = BroadcastingConfigService::isPusherEnabled();
+        
+        if ($enabled) {
+            \Log::info('LeadAssigned event will broadcast', [
+                'lead_id' => $this->lead->id,
+                'provider_id' => $this->lead->service_provider_id,
+            ]);
+        } else {
+            \Log::info('LeadAssigned event will NOT broadcast (Pusher disabled)', [
+                'lead_id' => $this->lead->id,
+            ]);
+        }
+        
+        return $enabled;
     }
 
     public function broadcastOn()

@@ -128,7 +128,20 @@ class LeadController extends Controller
             ]);
             
             // Broadcast status update event
-            event(new LeadStatusUpdated($lead, $oldStatus));
+            try {
+                \Log::info('Firing LeadStatusUpdated event (from provider)', [
+                    'lead_id' => $lead->id,
+                    'old_status' => $oldStatus,
+                    'new_status' => $lead->status,
+                    'provider_id' => $provider->id,
+                ]);
+                event(new LeadStatusUpdated($lead, $oldStatus));
+            } catch (\Exception $e) {
+                \Log::error('Failed to broadcast LeadStatusUpdated event', [
+                    'error' => $e->getMessage(),
+                    'lead_id' => $lead->id,
+                ]);
+            }
         }
 
         return response()->json($lead->load(['location', 'serviceProvider']));

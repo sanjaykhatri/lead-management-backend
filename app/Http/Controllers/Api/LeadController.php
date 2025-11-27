@@ -56,7 +56,19 @@ class LeadController extends Controller
         ]);
 
         // Always broadcast to admin (for all new leads)
-        event(new LeadAssigned($lead));
+        try {
+            \Log::info('Firing LeadAssigned event', [
+                'lead_id' => $lead->id,
+                'provider_id' => $lead->service_provider_id,
+                'pusher_enabled' => \App\Services\BroadcastingConfigService::isPusherEnabled(),
+            ]);
+            event(new LeadAssigned($lead));
+        } catch (\Exception $e) {
+            \Log::error('Failed to broadcast LeadAssigned event', [
+                'error' => $e->getMessage(),
+                'lead_id' => $lead->id,
+            ]);
+        }
         
         // Send notifications if provider is assigned
         if ($assignedProvider) {
