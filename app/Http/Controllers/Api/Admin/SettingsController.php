@@ -107,7 +107,14 @@ class SettingsController extends Controller
             }
 
             if (!$appId || !$appKey || !$appSecret) {
-                return response()->json(['error' => 'Pusher credentials are missing'], 400);
+                return response()->json([
+                    'error' => 'Pusher credentials are missing',
+                    'details' => [
+                        'has_app_id' => !empty($appId),
+                        'has_app_key' => !empty($appKey),
+                        'has_app_secret' => !empty($appSecret),
+                    ]
+                ], 400);
             }
 
             // Check if Pusher package is installed
@@ -120,14 +127,42 @@ class SettingsController extends Controller
                 $appKey,
                 $appSecret,
                 $appId,
-                ['cluster' => $cluster]
+                [
+                    'cluster' => $cluster,
+                    'useTLS' => true,
+                ]
             );
 
             $pusher->trigger('test-channel', 'test-event', ['message' => 'Test successful']);
 
-            return response()->json(['message' => 'Pusher connection successful']);
+            return response()->json([
+                'message' => 'Pusher connection successful',
+                'details' => [
+                    'app_id' => $appId,
+                    'cluster' => $cluster,
+                    'key_length' => strlen($appKey),
+                ]
+            ]);
+        } catch (\Pusher\PusherException $e) {
+            \Log::error('Pusher test failed', [
+                'error' => $e->getMessage(),
+                'code' => $e->getCode(),
+            ]);
+            return response()->json([
+                'error' => 'Pusher connection failed',
+                'message' => $e->getMessage(),
+                'code' => $e->getCode(),
+            ], 500);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Pusher connection failed: ' . $e->getMessage()], 500);
+            \Log::error('Pusher test error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return response()->json([
+                'error' => 'Pusher test failed',
+                'message' => $e->getMessage(),
+                'type' => get_class($e),
+            ], 500);
         }
     }
 

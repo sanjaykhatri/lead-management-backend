@@ -64,4 +64,9 @@ class ServiceProvider extends Authenticatable
     {
         return $this->hasMany(LeadNote::class);
     }
+
+    public function subscriptionHistory()
+    {
+        return $this->hasMany(SubscriptionHistory::class)->orderBy('event_date', 'desc');
+    }
 }

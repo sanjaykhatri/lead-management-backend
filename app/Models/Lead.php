@@ -38,4 +38,9 @@ class Lead extends Model
     {
         return $this->hasMany(LeadNote::class)->orderBy('created_at', 'desc');
     }
+
+    public function activityLogs()
+    {
+        return $this->hasMany(ActivityLog::class)->orderBy('created_at', 'desc');
+    }
 }

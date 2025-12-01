@@ -8,11 +8,11 @@ use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PresenceChannel;
 use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class LeadStatusUpdated implements ShouldBroadcastNow
+class LeadStatusUpdated implements ShouldBroadcast
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
@@ -30,7 +30,7 @@ class LeadStatusUpdated implements ShouldBroadcastNow
         $enabled = BroadcastingConfigService::isPusherEnabled();
         
         if ($enabled) {
-            \Log::info('LeadStatusUpdated event will broadcast', [
+            \Log::info('LeadStatusUpdated event will broadcast (queued)', [
                 'lead_id' => $this->lead->id,
                 'provider_id' => $this->lead->service_provider_id,
             ]);

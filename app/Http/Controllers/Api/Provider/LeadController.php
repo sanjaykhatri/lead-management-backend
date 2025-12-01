@@ -5,9 +5,14 @@ namespace App\Http\Controllers\Api\Provider;
 use App\Http\Controllers\Controller;
 use App\Models\Lead;
 use App\Models\LeadNote;
+use App\Models\ActivityLog;
+use App\Models\User;
 use App\Events\LeadStatusUpdated;
+use App\Notifications\ProviderLeadStatusUpdatedNotification;
+use App\Notifications\AdminLeadStatusUpdatedNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
 
 class LeadController extends Controller
 {
@@ -126,18 +131,51 @@ class LeadController extends Controller
                 'type' => 'status_change',
                 'metadata' => ['old_status' => $oldStatus, 'new_status' => $lead->status],
             ]);
+
+            // Log the activity
+            ActivityLog::log(
+                $lead->id,
+                'status_updated',
+                'provider',
+                $provider->id,
+                $provider->name,
+                "Status changed from {$oldStatus} to {$lead->status}",
+                ['old_status' => $oldStatus, 'new_status' => $lead->status]
+            );
             
             // Broadcast status update event
             try {
-                \Log::info('Firing LeadStatusUpdated event (from provider)', [
+                Log::info('Firing LeadStatusUpdated event (from provider, will be queued)', [
                     'lead_id' => $lead->id,
                     'old_status' => $oldStatus,
                     'new_status' => $lead->status,
                     'provider_id' => $provider->id,
+                    'queue_connection' => config('queue.default'),
                 ]);
                 event(new LeadStatusUpdated($lead, $oldStatus));
+                Log::info('LeadStatusUpdated event queued successfully', [
+                    'lead_id' => $lead->id,
+                    'note' => 'Event will be processed by queue worker. Make sure queue:work is running.',
+                ]);
             } catch (\Exception $e) {
-                \Log::error('Failed to broadcast LeadStatusUpdated event', [
+                Log::error('Failed to broadcast LeadStatusUpdated event', [
+                    'error' => $e->getMessage(),
+                    'lead_id' => $lead->id,
+                ]);
+            }
+
+            // Send database notifications
+            try {
+                // Notify the provider (who made the change)
+                $provider->notify(new ProviderLeadStatusUpdatedNotification($lead, $oldStatus));
+
+                // Notify all admin users
+                $adminUsers = User::whereIn('role', ['super_admin', 'admin', 'manager'])->get();
+                foreach ($adminUsers as $admin) {
+                    $admin->notify(new AdminLeadStatusUpdatedNotification($lead, $oldStatus));
+                }
+            } catch (\Exception $e) {
+                Log::error('Failed to create notifications for lead status update', [
                     'error' => $e->getMessage(),
                     'lead_id' => $lead->id,
                 ]);

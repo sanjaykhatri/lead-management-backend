@@ -31,4 +31,10 @@ class StripeSubscription extends Model
     {
         return $this->belongsTo(SubscriptionPlan::class, 'subscription_plan_id');
     }
+
+    public function history()
+    {
+        return $this->hasMany(SubscriptionHistory::class, 'stripe_subscription_id', 'stripe_subscription_id')
+            ->orderBy('event_date', 'desc');
+    }
 }

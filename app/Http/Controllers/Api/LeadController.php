@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Lead;
+use App\Models\User;
 use App\Models\Location;
 use App\Models\ServiceProvider;
 use App\Services\LeadAssignmentService;
 use App\Events\LeadAssigned;
 use App\Notifications\LeadAssignedNotification;
+use App\Notifications\AdminLeadAssignedNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -79,7 +81,7 @@ class LeadController extends Controller
             $broadcastDriver = config('broadcasting.default');
             $pusherConfig = config('broadcasting.connections.pusher');
             
-            \Log::info('Firing LeadAssigned event', [
+            \Log::info('Firing LeadAssigned event (will be queued)', [
                 'lead_id' => $lead->id,
                 'lead_name' => $lead->name,
                 'provider_id' => $lead->service_provider_id,
@@ -89,6 +91,7 @@ class LeadController extends Controller
                 'pusher_config_loaded' => !empty($pusherConfig),
                 'pusher_app_id' => $pusherConfig['app_id'] ?? 'missing',
                 'pusher_key' => !empty($pusherConfig['key']) ? '***' . substr($pusherConfig['key'], -4) : 'missing',
+                'queue_connection' => config('queue.default'),
                 'channels' => [
                     'admin',
                     $lead->service_provider_id ? 'private-provider.' . $lead->service_provider_id : null,
@@ -98,9 +101,10 @@ class LeadController extends Controller
             $event = new LeadAssigned($lead);
             event($event);
             
-            \Log::info('LeadAssigned event fired successfully', [
+            \Log::info('LeadAssigned event queued successfully', [
                 'lead_id' => $lead->id,
                 'should_broadcast' => $event->shouldBroadcast(),
+                'note' => 'Event will be processed by queue worker. Make sure queue:work is running.',
             ]);
         } catch (\Exception $e) {
             \Log::error('Failed to broadcast LeadAssigned event', [
@@ -117,6 +121,19 @@ class LeadController extends Controller
         if ($assignedProvider) {
             // Send SMS and database notification
             $assignedProvider->notify(new LeadAssignedNotification($lead));
+        }
+
+        // Send database notifications to all admin users
+        try {
+            $adminUsers = User::whereIn('role', ['super_admin', 'admin', 'manager'])->get();
+            foreach ($adminUsers as $admin) {
+                $admin->notify(new AdminLeadAssignedNotification($lead));
+            }
+        } catch (\Exception $e) {
+            \Log::error('Failed to create admin notifications for lead assignment', [
+                'error' => $e->getMessage(),
+                'lead_id' => $lead->id,
+            ]);
         }
 
         return response()->json([

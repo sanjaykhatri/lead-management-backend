@@ -75,6 +75,9 @@ Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
     Route::post('/settings/pusher/test', [SettingsController::class, 'testPusher']);
     Route::post('/settings/twilio/test', [SettingsController::class, 'testTwilio']);
 
+    // Subscription Plans
+    Route::apiResource('plans', \App\Http\Controllers\Api\Admin\SubscriptionPlanController::class);
+
     // Notifications
     Route::get('/notifications', [NotificationsController::class, 'index']);
     Route::get('/notifications/unread', [NotificationsController::class, 'unread']);
@@ -92,14 +95,23 @@ Route::middleware('auth:sanctum')->prefix('provider')->group(function () {
     Route::put('/password', [ProviderAuthController::class, 'updatePassword']);
 
     // Subscription
+    Route::get('/subscription/plans', [ProviderSubscriptionController::class, 'getPlans']);
     Route::get('/subscription/status', [ProviderSubscriptionController::class, 'getStatus']);
+    Route::get('/subscription/history', [ProviderSubscriptionController::class, 'getHistory']);
     Route::post('/subscription/checkout', [ProviderSubscriptionController::class, 'createCheckoutSession']);
-    Route::get('/subscription/billing-portal', [ProviderSubscriptionController::class, 'createBillingPortalSession']);
+    Route::post('/subscription/upgrade', [ProviderSubscriptionController::class, 'upgradePlan']);
+    Route::post('/subscription/billing-portal', [ProviderSubscriptionController::class, 'createBillingPortalSession']);
 
     // Leads
     Route::get('/leads', [ProviderLeadController::class, 'index']);
     Route::get('/leads/{lead}', [ProviderLeadController::class, 'show']);
     Route::put('/leads/{lead}', [ProviderLeadController::class, 'update']);
+
+    // Lead Notes
+    Route::get('/leads/{lead}/notes', [\App\Http\Controllers\Api\Provider\LeadNoteController::class, 'index']);
+    Route::post('/leads/{lead}/notes', [\App\Http\Controllers\Api\Provider\LeadNoteController::class, 'store']);
+    Route::put('/notes/{note}', [\App\Http\Controllers\Api\Provider\LeadNoteController::class, 'update']);
+    Route::delete('/notes/{note}', [\App\Http\Controllers\Api\Provider\LeadNoteController::class, 'destroy']);
     
     // Notifications
     Route::get('/notifications', [NotificationsController::class, 'index']);
@@ -109,6 +121,13 @@ Route::middleware('auth:sanctum')->prefix('provider')->group(function () {
     
     // Settings (for Pusher config)
     Route::get('/settings/pusher', [\App\Http\Controllers\Api\Provider\SettingsController::class, 'getPusherSettings']);
+    
+    // Subscription
+    Route::get('/subscription/plans', [\App\Http\Controllers\Api\Provider\SubscriptionController::class, 'getPlans']);
+    Route::get('/subscription/status', [\App\Http\Controllers\Api\Provider\SubscriptionController::class, 'getStatus']);
+    Route::post('/subscription/checkout', [\App\Http\Controllers\Api\Provider\SubscriptionController::class, 'createCheckoutSession']);
+    Route::post('/subscription/upgrade', [\App\Http\Controllers\Api\Provider\SubscriptionController::class, 'upgradePlan']);
+    Route::post('/subscription/billing-portal', [\App\Http\Controllers\Api\Provider\SubscriptionController::class, 'createBillingPortalSession']);
 });
 
 // Broadcasting auth (requires auth)

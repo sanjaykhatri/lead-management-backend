@@ -1,29 +1,42 @@
 <?php
 
-namespace App\Http\Controllers\Api\Admin;
+namespace App\Http\Controllers\Api\Provider;
 
 use App\Http\Controllers\Controller;
 use App\Models\Lead;
 use App\Models\LeadNote;
 use App\Models\User;
-use App\Models\ActivityLog;
 use App\Events\LeadNoteCreated;
-use App\Notifications\AdminLeadNoteCreatedNotification;
 use App\Notifications\LeadNoteCreatedNotification;
+use App\Notifications\AdminLeadNoteCreatedNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 
 class LeadNoteController extends Controller
 {
-    public function index(Lead $lead)
+    public function index(Request $request, Lead $lead)
     {
+        $provider = $request->user();
+        
+        // Ensure the lead belongs to this provider
+        if ($lead->service_provider_id !== $provider->id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
         $notes = $lead->notes()->with(['user', 'serviceProvider'])->orderBy('created_at', 'desc')->get();
         return response()->json($notes);
     }
 
     public function store(Request $request, Lead $lead)
     {
+        $provider = $request->user();
+        
+        // Ensure the lead belongs to this provider
+        if ($lead->service_provider_id !== $provider->id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
         $validator = Validator::make($request->all(), [
             'note' => 'required|string',
             'type' => 'sometimes|in:note,status_change,assignment,other',
@@ -33,37 +46,25 @@ class LeadNoteController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $user = $request->user();
-
         $note = LeadNote::create([
             'lead_id' => $lead->id,
-            'user_id' => $user->id,
+            'service_provider_id' => $provider->id,
             'note' => $request->note,
             'type' => $request->type ?? 'note',
             'metadata' => $request->metadata ?? null,
         ]);
 
         // Log the activity
-        ActivityLog::log(
-            $lead->id,
-            'note_created',
-            'admin',
-            $user->id,
-            $user->name,
-            "Note added: " . substr($request->note, 0, 100),
-            ['note_id' => $note->id, 'note_type' => $note->type]
-        );
-
-        Log::info('Lead note created by admin', [
+        Log::info('Lead note created by provider', [
             'note_id' => $note->id,
             'lead_id' => $lead->id,
-            'user_id' => $user->id,
-            'user_name' => $user->name,
+            'provider_id' => $provider->id,
+            'provider_name' => $provider->name,
             'note_type' => $note->type,
         ]);
 
         // Load relationships for event
-        $note->load(['lead', 'user']);
+        $note->load(['lead', 'serviceProvider']);
         $lead->refresh()->load(['location', 'serviceProvider']);
 
         // Broadcast event for real-time updates
@@ -85,15 +86,12 @@ class LeadNoteController extends Controller
             // Notify all admin users
             $adminUsers = User::whereIn('role', ['super_admin', 'admin', 'manager'])->get();
             foreach ($adminUsers as $admin) {
-                if ($admin->id !== $user->id) { // Don't notify the creator
-                    $admin->notify(new AdminLeadNoteCreatedNotification($note));
-                }
+                $admin->notify(new AdminLeadNoteCreatedNotification($note));
             }
 
-            // Notify the assigned provider if lead has one
-            if ($lead->service_provider_id && $lead->serviceProvider) {
-                $lead->serviceProvider->notify(new LeadNoteCreatedNotification($note));
-            }
+            // Notify the assigned provider (if different from the one who created the note)
+            // Actually, since provider created it, we don't need to notify them again
+            // But we could notify if admin adds a note to provider's lead
         } catch (\Exception $e) {
             Log::error('Failed to create notifications for lead note', [
                 'error' => $e->getMessage(),
@@ -101,11 +99,23 @@ class LeadNoteController extends Controller
             ]);
         }
 
-        return response()->json($note->load(['user']), 201);
+        return response()->json($note->load(['serviceProvider']), 201);
     }
 
     public function update(Request $request, LeadNote $note)
     {
+        $provider = $request->user();
+        
+        // Ensure the note belongs to a lead assigned to this provider
+        if ($note->lead->service_provider_id !== $provider->id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        // Only allow the creator to update
+        if ($note->service_provider_id !== $provider->id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
         $validator = Validator::make($request->all(), [
             'note' => 'required|string',
         ]);
@@ -114,62 +124,40 @@ class LeadNoteController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $user = $request->user();
-
-        // Only allow the creator or admin to update
-        if ($note->user_id !== $user->id && $user->role !== 'super_admin') {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
-
         $oldNote = $note->note;
         $note->update(['note' => $request->note]);
 
         // Log the activity
-        ActivityLog::log(
-            $note->lead_id,
-            'note_updated',
-            'admin',
-            $user->id,
-            $user->name,
-            "Note updated",
-            ['note_id' => $note->id]
-        );
-
-        Log::info('Lead note updated by admin', [
+        Log::info('Lead note updated by provider', [
             'note_id' => $note->id,
             'lead_id' => $note->lead_id,
-            'user_id' => $user->id,
-            'user_name' => $user->name,
+            'provider_id' => $provider->id,
+            'provider_name' => $provider->name,
         ]);
 
-        return response()->json($note->load(['user']));
+        return response()->json($note->load(['serviceProvider']));
     }
 
     public function destroy(LeadNote $note)
     {
-        $user = request()->user();
+        $provider = request()->user();
+        
+        // Ensure the note belongs to a lead assigned to this provider
+        if ($note->lead->service_provider_id !== $provider->id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
 
-        // Only allow the creator or admin to delete
-        if ($user->id !== $note->user_id && $user->role !== 'super_admin') {
+        // Only allow the creator to delete
+        if ($note->service_provider_id !== $provider->id) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         // Log the activity
-        ActivityLog::log(
-            $note->lead_id,
-            'note_deleted',
-            'admin',
-            $user->id,
-            $user->name,
-            "Note deleted",
-            ['note_id' => $note->id, 'deleted_note' => substr($note->note, 0, 100)]
-        );
-
-        Log::info('Lead note deleted by admin', [
+        Log::info('Lead note deleted by provider', [
             'note_id' => $note->id,
             'lead_id' => $note->lead_id,
-            'user_id' => $user->id,
-            'user_name' => $user->name,
+            'provider_id' => $provider->id,
+            'provider_name' => $provider->name,
         ]);
 
         $note->delete();
