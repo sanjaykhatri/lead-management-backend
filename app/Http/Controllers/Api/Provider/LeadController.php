@@ -150,9 +150,11 @@ class LeadController extends Controller
                     'old_status' => $oldStatus,
                     'new_status' => $lead->status,
                     'provider_id' => $provider->id,
+                    'updated_by' => 'provider',
+                    'updated_by_name' => $provider->name,
                     'queue_connection' => config('queue.default'),
                 ]);
-                event(new LeadStatusUpdated($lead, $oldStatus));
+                event(new LeadStatusUpdated($lead, $oldStatus, 'provider', $provider->name));
                 Log::info('LeadStatusUpdated event queued successfully', [
                     'lead_id' => $lead->id,
                     'note' => 'Event will be processed by queue worker. Make sure queue:work is running.',

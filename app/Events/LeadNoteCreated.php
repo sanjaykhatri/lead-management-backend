@@ -70,6 +70,11 @@ class LeadNoteCreated implements ShouldBroadcast
         $createdBy = $this->note->user 
             ? $this->note->user->name 
             : ($this->note->serviceProvider ? $this->note->serviceProvider->name : 'System');
+        
+        $isAdminNote = (bool) $this->note->user_id;
+        $notePreview = strlen($this->note->note) > 100 
+            ? substr($this->note->note, 0, 100) . '...' 
+            : $this->note->note;
 
         return [
             'type' => 'lead_note_created',
@@ -79,7 +84,8 @@ class LeadNoteCreated implements ShouldBroadcast
                 'note' => $this->note->note,
                 'type' => $this->note->type,
                 'created_by' => $createdBy,
-                'created_by_type' => $this->note->user_id ? 'admin' : 'provider',
+                'created_by_type' => $isAdminNote ? 'admin' : 'provider',
+                'user_id' => $this->note->user_id, // Include for easier checking
                 'created_at' => $this->note->created_at->toIso8601String(),
             ],
             'lead' => [
@@ -87,7 +93,9 @@ class LeadNoteCreated implements ShouldBroadcast
                 'name' => $this->note->lead->name,
                 'service_provider_id' => $this->note->lead->service_provider_id,
             ],
-            'message' => "New note added to lead '{$this->note->lead->name}' by {$createdBy}",
+            'message' => $isAdminNote
+                ? "Admin added a note to lead '{$this->note->lead->name}': {$notePreview}"
+                : "New note added to lead '{$this->note->lead->name}' by {$createdBy}",
         ];
     }
 }

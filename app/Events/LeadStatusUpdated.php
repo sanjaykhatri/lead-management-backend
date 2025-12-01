@@ -18,11 +18,15 @@ class LeadStatusUpdated implements ShouldBroadcast
 
     public $lead;
     public $oldStatus;
+    public $updatedBy; // 'admin' or 'provider'
+    public $updatedByName; // Name of the person who updated
 
-    public function __construct(Lead $lead, $oldStatus)
+    public function __construct(Lead $lead, $oldStatus, $updatedBy = 'admin', $updatedByName = null)
     {
         $this->lead = $lead->load(['location', 'serviceProvider']);
         $this->oldStatus = $oldStatus;
+        $this->updatedBy = $updatedBy;
+        $this->updatedByName = $updatedByName;
     }
 
     public function shouldBroadcast()
@@ -68,6 +72,10 @@ class LeadStatusUpdated implements ShouldBroadcast
 
     public function broadcastWith()
     {
+        $updatedByText = $this->updatedByName 
+            ? "{$this->updatedBy} ({$this->updatedByName})"
+            : $this->updatedBy;
+        
         return [
             'type' => 'lead_status_updated',
             'lead' => [
@@ -78,7 +86,12 @@ class LeadStatusUpdated implements ShouldBroadcast
                 'service_provider_id' => $this->lead->service_provider_id,
                 'service_provider_name' => $this->lead->serviceProvider->name ?? null,
             ],
-            'message' => "Lead '{$this->lead->name}' status changed from {$this->oldStatus} to {$this->lead->status}",
+            'updated_by' => $this->updatedBy,
+            'updated_by_name' => $this->updatedByName,
+            'user_type' => $this->updatedBy, // For backward compatibility
+            'message' => $this->updatedBy === 'admin'
+                ? "Admin updated lead '{$this->lead->name}' status from {$this->oldStatus} to {$this->lead->status}"
+                : "Lead '{$this->lead->name}' status changed from {$this->oldStatus} to {$this->lead->status}",
         ];
     }
 }
