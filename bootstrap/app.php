@@ -17,6 +17,19 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class => \App\Http\Middleware\VerifyCsrfToken::class,
         ]);
     })
+    ->withSchedule(function (\Illuminate\Console\Scheduling\Schedule $schedule): void {
+        // Run queue worker every minute
+        $schedule->command('queue:work --stop-when-empty --tries=3 --timeout=60')
+            ->everyMinute()
+            ->withoutOverlapping()
+            ->runInBackground();
+        
+        // Also run queue:work as a daemon (runs continuously until stopped)
+        // Uncomment this if you want a persistent worker instead of per-minute jobs
+        // $schedule->command('queue:work --daemon --tries=3 --timeout=60')
+        //     ->everyMinute()
+        //     ->withoutOverlapping();
+    })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
     })->create();

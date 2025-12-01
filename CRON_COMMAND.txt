@@ -1,0 +1,80 @@
+================================================================================
+LARAVEL QUEUE WORKER - CRON JOB COMMAND FOR SHARED HOSTING
+================================================================================
+
+OPTION 1: Using Laravel Scheduler (Recommended)
+------------------------------------------------
+Command to add in cPanel Cron Jobs:
+
+/usr/bin/php /home/username/public_html/lead-management-backend/artisan schedule:run
+
+Replace /home/username/public_html/lead-management-backend with your actual project path.
+
+Cron Settings:
+- Minute: *
+- Hour: *
+- Day: *
+- Month: *
+- Weekday: *
+
+
+OPTION 2: Using cron.php Script
+--------------------------------
+Command to add in cPanel Cron Jobs:
+
+/usr/bin/php /home/username/public_html/lead-management-backend/cron.php
+
+Replace /home/username/public_html/lead-management-backend with your actual project path.
+
+Cron Settings:
+- Minute: *
+- Hour: *
+- Day: *
+- Month: *
+- Weekday: *
+
+
+OPTION 3: Direct Queue Worker
+------------------------------
+Command to add in cPanel Cron Jobs:
+
+/usr/bin/php /home/username/public_html/lead-management-backend/artisan queue:work --stop-when-empty --tries=3 --timeout=60 --max-time=60
+
+Replace /home/username/public_html/lead-management-backend with your actual project path.
+
+Cron Settings:
+- Minute: *
+- Hour: *
+- Day: *
+- Month: *
+- Weekday: *
+
+
+FINDING YOUR PHP PATH
+---------------------
+1. Create a file called phpinfo.php in your public_html folder:
+   <?php phpinfo(); ?>
+   
+2. Visit it in your browser and look for "System" section
+
+3. Or check cPanel > Select PHP Version
+
+Common PHP paths:
+- /usr/bin/php
+- /usr/local/bin/php
+- /opt/cpanel/ea-php81/root/usr/bin/php (cPanel EasyApache)
+
+
+FINDING YOUR PROJECT PATH
+--------------------------
+Your project path is typically:
+/home/username/public_html/lead-management-backend
+
+Or if in a subdirectory:
+/home/username/public_html/backend/lead-management-backend
+
+Check via cPanel File Manager or SSH:
+pwd
+
+================================================================================
+
