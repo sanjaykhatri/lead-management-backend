@@ -53,7 +53,9 @@ class LeadAssigned implements ShouldBroadcastNow
             'lead_id' => $this->lead->id,
             'channels' => array_map(function($channel) {
                 if ($channel instanceof PrivateChannel) {
-                    return 'private-provider.' . str_replace('provider.', '', $channel->name);
+                    // Laravel automatically prefixes private channels with 'private-'
+                    // So PrivateChannel('provider.2') becomes 'private-provider.2'
+                    return $channel->name; // This is already 'private-provider.2'
                 }
                 return $channel->name;
             }, $channels),

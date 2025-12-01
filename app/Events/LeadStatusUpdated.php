@@ -51,6 +51,13 @@ class LeadStatusUpdated implements ShouldBroadcastNow
             $channels[] = new PrivateChannel('provider.' . $this->lead->service_provider_id);
         }
 
+        \Log::info('LeadStatusUpdated broadcastOn called', [
+            'lead_id' => $this->lead->id,
+            'channels' => array_map(function($channel) {
+                return $channel->name;
+            }, $channels),
+        ]);
+
         return $channels;
     }
 
