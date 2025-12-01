@@ -8,11 +8,11 @@ use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PresenceChannel;
 use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class LeadAssigned implements ShouldBroadcast
+class LeadAssigned implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
@@ -49,6 +49,16 @@ class LeadAssigned implements ShouldBroadcast
             $channels[] = new PrivateChannel('provider.' . $this->lead->service_provider_id);
         }
         
+        \Log::info('LeadAssigned broadcastOn called', [
+            'lead_id' => $this->lead->id,
+            'channels' => array_map(function($channel) {
+                if ($channel instanceof PrivateChannel) {
+                    return 'private-provider.' . str_replace('provider.', '', $channel->name);
+                }
+                return $channel->name;
+            }, $channels),
+        ]);
+        
         return $channels;
     }
 
@@ -59,7 +69,7 @@ class LeadAssigned implements ShouldBroadcast
 
     public function broadcastWith()
     {
-        return [
+        $data = [
             'type' => 'lead_assigned',
             'lead' => [
                 'id' => $this->lead->id,
@@ -76,6 +86,14 @@ class LeadAssigned implements ShouldBroadcast
                 ? "New lead '{$this->lead->name}' assigned to {$this->lead->serviceProvider->name}"
                 : "New lead '{$this->lead->name}' created",
         ];
+        
+        \Log::info('LeadAssigned broadcastWith called', [
+            'lead_id' => $this->lead->id,
+            'event_name' => $this->broadcastAs(),
+            'data_keys' => array_keys($data),
+        ]);
+        
+        return $data;
     }
 }
 

@@ -55,17 +55,39 @@ class LeadController extends Controller
             'status' => 'new',
         ]);
 
+        // Refresh lead to ensure relationships are loaded
+        $lead->refresh();
+        $lead->load(['location', 'serviceProvider']);
+
         // Always broadcast to admin (for all new leads)
         try {
+            $pusherEnabled = \App\Services\BroadcastingConfigService::isPusherEnabled();
+            $broadcastDriver = config('broadcasting.default');
+            
             \Log::info('Firing LeadAssigned event', [
                 'lead_id' => $lead->id,
+                'lead_name' => $lead->name,
                 'provider_id' => $lead->service_provider_id,
-                'pusher_enabled' => \App\Services\BroadcastingConfigService::isPusherEnabled(),
+                'provider_name' => $lead->serviceProvider->name ?? null,
+                'pusher_enabled' => $pusherEnabled,
+                'broadcast_driver' => $broadcastDriver,
+                'channels' => [
+                    'admin',
+                    $lead->service_provider_id ? 'private-provider.' . $lead->service_provider_id : null,
+                ],
             ]);
-            event(new LeadAssigned($lead));
+            
+            $event = new LeadAssigned($lead);
+            event($event);
+            
+            \Log::info('LeadAssigned event fired successfully', [
+                'lead_id' => $lead->id,
+                'should_broadcast' => $event->shouldBroadcast(),
+            ]);
         } catch (\Exception $e) {
             \Log::error('Failed to broadcast LeadAssigned event', [
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
                 'lead_id' => $lead->id,
             ]);
         }
