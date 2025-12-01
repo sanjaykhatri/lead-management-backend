@@ -61,8 +61,23 @@ class LeadController extends Controller
 
         // Always broadcast to admin (for all new leads)
         try {
+            // Ensure Pusher config is loaded before broadcasting
+            if (\App\Services\BroadcastingConfigService::isPusherEnabled()) {
+                $pusherConfig = \App\Services\BroadcastingConfigService::getPusherConfig();
+                \Illuminate\Support\Facades\Config::set('broadcasting.connections.pusher', $pusherConfig);
+                \Illuminate\Support\Facades\Config::set('broadcasting.default', 'pusher');
+                
+                \Log::info('Pusher config loaded before broadcast', [
+                    'has_key' => !empty($pusherConfig['key']),
+                    'has_secret' => !empty($pusherConfig['secret']),
+                    'has_app_id' => !empty($pusherConfig['app_id']),
+                    'cluster' => $pusherConfig['options']['cluster'] ?? 'unknown',
+                ]);
+            }
+            
             $pusherEnabled = \App\Services\BroadcastingConfigService::isPusherEnabled();
             $broadcastDriver = config('broadcasting.default');
+            $pusherConfig = config('broadcasting.connections.pusher');
             
             \Log::info('Firing LeadAssigned event', [
                 'lead_id' => $lead->id,
@@ -71,6 +86,9 @@ class LeadController extends Controller
                 'provider_name' => $lead->serviceProvider->name ?? null,
                 'pusher_enabled' => $pusherEnabled,
                 'broadcast_driver' => $broadcastDriver,
+                'pusher_config_loaded' => !empty($pusherConfig),
+                'pusher_app_id' => $pusherConfig['app_id'] ?? 'missing',
+                'pusher_key' => !empty($pusherConfig['key']) ? '***' . substr($pusherConfig['key'], -4) : 'missing',
                 'channels' => [
                     'admin',
                     $lead->service_provider_id ? 'private-provider.' . $lead->service_provider_id : null,
@@ -87,6 +105,9 @@ class LeadController extends Controller
         } catch (\Exception $e) {
             \Log::error('Failed to broadcast LeadAssigned event', [
                 'error' => $e->getMessage(),
+                'error_class' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
                 'trace' => $e->getTraceAsString(),
                 'lead_id' => $lead->id,
             ]);
