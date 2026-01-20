@@ -28,50 +28,91 @@ class SubscriptionController extends Controller
 
     public function getStatus(Request $request)
     {
-        $provider = $request->user();
-        $provider->load(['stripeSubscription.plan']);
-
-        // Best-effort sync with Stripe if we have a subscription id but status is not active
         try {
-            $localSub = $provider->stripeSubscription;
-            if ($localSub && $localSub->stripe_subscription_id && $localSub->status !== 'active') {
-                Stripe::setApiKey(config('services.stripe.secret'));
+            $provider = $request->user();
 
-                $stripeSub = StripeSubscription::retrieve($localSub->stripe_subscription_id);
-
-                // Map Stripe status
-                $statusMap = [
-                    'active' => 'active',
-                    'canceled' => 'canceled',
-                    'past_due' => 'past_due',
-                    'incomplete' => 'incomplete',
-                    'trialing' => 'trialing',
-                ];
-                $mappedStatus = $statusMap[$stripeSub->status] ?? 'incomplete';
-
-                $localSub->update([
-                    'status' => $mappedStatus,
-                    'current_period_end' => isset($stripeSub->current_period_end)
-                        ? date('Y-m-d H:i:s', $stripeSub->current_period_end)
-                        : null,
+            // Ensure we are working with a ServiceProvider model, not an Admin User
+            if (!($provider instanceof ServiceProvider)) {
+                \Log::warning('Non-provider tried to access provider subscription status', [
+                    'auth_model' => get_class($provider),
+                    'auth_id' => $provider->id ?? null,
                 ]);
 
-                // Reload relations
-                $provider->load(['stripeSubscription.plan']);
+                return response()->json([
+                    'error' => 'Only providers can access subscription status.',
+                ], 403);
             }
-        } catch (\Exception $e) {
-            // Don't break the API if Stripe sync fails; just log it.
-            \Log::error('Failed to sync Stripe subscription status in getStatus', [
-                'provider_id' => $provider->id,
-                'error' => $e->getMessage(),
+            
+            // Safely load relationships - handle case where subscription might not exist
+            try {
+                $provider->load(['stripeSubscription.plan']);
+            } catch (\Exception $e) {
+                \Log::warning('Failed to load subscription relationship', [
+                    'provider_id' => $provider->id,
+                    'error' => $e->getMessage(),
+                ]);
+                // Continue anyway - subscription might not exist yet
+            }
+
+            // Best-effort sync with Stripe if we have a subscription id but status is not active
+            try {
+                $localSub = $provider->stripeSubscription;
+                if ($localSub && $localSub->stripe_subscription_id && $localSub->status !== 'active') {
+                    $stripeSecret = config('services.stripe.secret');
+                    if (!$stripeSecret) {
+                        \Log::warning('Stripe secret key not configured');
+                    } else {
+                        Stripe::setApiKey($stripeSecret);
+
+                        $stripeSub = StripeSubscription::retrieve($localSub->stripe_subscription_id);
+
+                        // Map Stripe status
+                        $statusMap = [
+                            'active' => 'active',
+                            'canceled' => 'canceled',
+                            'past_due' => 'past_due',
+                            'incomplete' => 'incomplete',
+                            'trialing' => 'trialing',
+                        ];
+                        $mappedStatus = $statusMap[$stripeSub->status] ?? 'incomplete';
+
+                        $localSub->update([
+                            'status' => $mappedStatus,
+                            'current_period_end' => isset($stripeSub->current_period_end)
+                                ? date('Y-m-d H:i:s', $stripeSub->current_period_end)
+                                : null,
+                        ]);
+
+                        // Reload relations
+                        $provider->load(['stripeSubscription.plan']);
+                    }
+                }
+            } catch (\Exception $e) {
+                // Don't break the API if Stripe sync fails; just log it.
+                \Log::error('Failed to sync Stripe subscription status in getStatus', [
+                    'provider_id' => $provider->id,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+            }
+            
+            return response()->json([
+                'has_active_subscription' => $provider->hasActiveSubscription(),
+                'subscription' => $provider->stripeSubscription,
+                'current_plan' => $provider->stripeSubscription?->plan,
             ]);
+        } catch (\Exception $e) {
+            \Log::error('Failed to get subscription status', [
+                'provider_id' => $request->user()?->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            
+            return response()->json([
+                'error' => 'Failed to retrieve subscription status',
+                'message' => $e->getMessage(),
+            ], 500);
         }
-        
-        return response()->json([
-            'has_active_subscription' => $provider->hasActiveSubscription(),
-            'subscription' => $provider->stripeSubscription,
-            'current_plan' => $provider->stripeSubscription?->plan,
-        ]);
     }
 
     public function createCheckoutSession(Request $request)
