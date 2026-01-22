@@ -75,116 +75,54 @@ localhost/
 - **Status Updates**: Providers can update lead status (new, contacted, closed)
 - **Subscription Status**: Real-time subscription status checking with automatic access blocking for inactive accounts
 
-## Setup Instructions
+## Quick Setup
 
-### Backend (Laravel)
+For detailed setup instructions, see [BACKEND_SETUP.md](./BACKEND_SETUP.md).
 
-1. Navigate to the backend directory:
-```bash
-cd backend
-```
+### Quick Start
 
-2. Install dependencies:
-```bash
-composer install
-```
+1. **Install dependencies:**
+   ```bash
+   composer install
+   ```
 
-3. Copy environment file:
-```bash
-cp .env.example .env
-```
+2. **Configure environment:**
+   ```bash
+   cp .env.example .env
+   php artisan key:generate
+   ```
 
-4. Generate application key:
-```bash
-php artisan key:generate
-```
+3. **Set up database:**
+   - Create MySQL database: `lead_management`
+   - Update `.env` with database credentials
+   - Run migrations: `php artisan migrate`
 
-5. Configure database in `.env` (already set to MySQL):
-```env
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=lead_management
-DB_USERNAME=root
-DB_PASSWORD=root
-```
+4. **Create admin user:**
+   ```bash
+   php artisan tinker
+   ```
+   ```php
+   use App\Models\User;
+   use Illuminate\Support\Facades\Hash;
+   User::create([
+       'name' => 'Admin',
+       'email' => 'admin@example.com',
+       'password' => Hash::make('password'),
+       'role' => 'super_admin'
+   ]);
+   ```
 
-   **Important:** Before running migrations:
-   - Create the MySQL database:
-     ```bash
-     mysql -u root -p
-     CREATE DATABASE lead_management CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-     EXIT;
-     ```
-   - Update `DB_USERNAME` and `DB_PASSWORD` in `.env` with your MySQL credentials
-   - **Note:** If using MAMP, the default password is usually `root`
+5. **Start the server:**
+   ```bash
+   php artisan serve
+   ```
 
-6. Configure Stripe in `.env`:
-```env
-STRIPE_KEY=your_stripe_publishable_key
-STRIPE_SECRET=your_stripe_secret_key
-STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
-STRIPE_PRICE_ID=your_stripe_price_id
-```
+6. **Start queue worker** (in separate terminal):
+   ```bash
+   php artisan queue:work
+   ```
 
-7. Configure frontend URL in `.env`:
-```env
-FRONTEND_URL=http://localhost:3000
-```
-
-8. Run migrations:
-```bash
-php artisan migrate
-```
-
-   **Note:** Migration order is important. The migrations are ordered as:
-   - Service providers (must be created first)
-   - Locations
-   - Location-service provider pivot table
-   - Leads (references service providers and locations)
-   - Stripe subscriptions (references service providers)
-
-9. Run the migration to add password field to service_providers:
-```bash
-php artisan migrate
-```
-   This will add the `password` column to the `service_providers` table if not already present.
-
-10. Create an admin user:
-```bash
-php artisan tinker
-```
-Then:
-```php
-$user = new App\Models\User();
-$user->name = 'Admin';
-$user->email = 'admin@example.com';
-$user->password = Hash::make('password');
-$user->save();
-```
-
-   **Default Admin Credentials:**
-   - Email: `admin@example.com`
-   - Password: `password`
-   
-   **Important:** Change these credentials in production!
-
-11. (Optional) Create a test provider with password:
-```php
-$provider = new App\Models\ServiceProvider();
-$provider->name = 'Test Provider';
-$provider->email = 'provider@example.com';
-$provider->password = Hash::make('password123');
-$provider->save();
-```
-   Or use the provider signup endpoint: `POST /api/provider/signup`
-
-12. Start the server:
-```bash
-php artisan serve
-```
-
-The API will be available at `http://localhost:8000`
+For complete setup including Stripe, Pusher, Twilio, and production deployment, see [BACKEND_SETUP.md](./BACKEND_SETUP.md).
 
 ### Frontend (Next.js)
 
@@ -422,11 +360,14 @@ If you encounter "CSRF token mismatch" errors:
 - [ ] Migrations run successfully (`php artisan migrate`)
 - [ ] Admin user created
 - [ ] Laravel server running (`php artisan serve`)
+- [ ] Queue worker running (`php artisan queue:work`)
 - [ ] Frontend `.env.local` configured with API URL
 - [ ] Next.js server running (`npm run dev`)
 - [ ] Test admin login at `http://localhost:3000/admin/login`
 - [ ] Create a test location in admin dashboard
 - [ ] Test lead form at `http://localhost:3000/lead/{location-slug}`
+
+**For detailed setup instructions, see [BACKEND_SETUP.md](./BACKEND_SETUP.md)**
 
 ## Configuration Files
 
